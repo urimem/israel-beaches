@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locations</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<style>
+:root {
+  --bg: #faf8f4;
+  --ink: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #e8e4dc;
+  --accent: #c64b2c;
+  --accent-soft: #f4ede5;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+header {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: var(--bg);
+  z-index: 1000;
+  flex-wrap: wrap;
+}
+h1 {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-feature-settings: "tnum";
+}
+.search { margin-left: auto; }
+.search input {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  width: 260px;
+  outline: none;
+  transition: border-color .15s;
+}
+.search input:focus { border-color: var(--accent); }
+#map { flex: 1; background: #e6e1d8; min-height: 0; }
+.status {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 14px 22px;
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  font-size: 14px;
+  color: var(--muted);
+  z-index: 1500;
+  max-width: 80%;
+  text-align: center;
+}
+.popup-card {
+  font-family: 'Geist', sans-serif;
+  min-width: 240px;
+  max-width: 320px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.popup-card h3 {
+  margin: 0 0 8px 0;
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+.popup-card .field {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0;
+  line-height: 1.45;
+}
+.popup-card .field strong {
+  color: var(--ink);
+  font-weight: 500;
+  margin-right: 6px;
+}
+.popup-card a.row-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background .15s;
+}
+.popup-card a.row-link:hover { background: #ebdfd2; }
+.leaflet-popup-content-wrapper {
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.leaflet-popup-content { margin: 14px 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Locations</h1>
+    <div class="subtitle" id="count">Loading…</div>
+  </div>
+  <div class="search">
+    <input id="filter" type="text" placeholder="Filter by name…" autocomplete="off" />
+  </div>
+</header>
+
+<div id="map"></div>
+<div class="status" id="status">Loading locations…</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+// ============================================================
+// CONFIG — edit these to match your sheet
+// ============================================================
+const CONFIG = {
+  SHEET_ID: '1FLeJmp4zDma-hN3xZtWtowVPQpFNlECUsfvFKcrOn10',  // from the sheet URL between /d/ and /edit
+  GID: '0',                         // tab gid (in URL after #gid=); first tab is usually 0
+
+  // Column header names — must match exactly (case-sensitive)
+  NAME_COLUMN: 'שם החוף',
+  LAT_COLUMN:  'Lat',
+  LNG_COLUMN:  'Lng',
+
+  // Columns shown in the popup. Each entry can be:
+  //   - a string: column name used as both lookup and label
+  //   - { column: '...', label: '...' }: use a short label for long column names
+  SNIPPET_COLUMNS: [
+    { column: 'איזור בארץ', label: 'אזור' },
+    { column: 'החוף בתשלום / כניסה חופשית?', label: 'כניסה' },
+    { column: 'ציין את הדירוג לחוף כיעד לשחייני מים פתוחים (1 - לא מומלץ , 10 - הטוב ביותר)', label: 'דירוג' },
+    { column: 'טיפ המאמן (מוזמנים לכתוב חופשי)', label: 'טיפ' },
+  ],
+
+  // If true, every remaining column (except Name/Lat/Lng and those above)
+  // is appended after the curated snippet, using its raw header as the label.
+  SHOW_ALL_COLUMNS: true,
+
+  // Initial view (used if no locations load)
+  DEFAULT_CENTER: [32.0853, 34.7818],  // Tel Aviv
+  DEFAULT_ZOOM: 8,
+};
+// ============================================================
+
+const map = L.map('map').setView(CONFIG.DEFAULT_CENTER, CONFIG.DEFAULT_ZOOM);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+const cluster = L.markerClusterGroup({
+  showCoverageOnHover: false,
+  spiderfyOnMaxZoom: true,
+});
+map.addLayer(cluster);
+
+const statusEl = document.getElementById('status');
+const countEl  = document.getElementById('count');
+const filterEl = document.getElementById('filter');
+
+let allMarkers = [];
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => (
+  { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+));
+
+function gvizUrl() {
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&gid=${CONFIG.GID}`;
+}
+
+function sheetRowUrl(rowIndex) {
+  // rowIndex is 0-based data row; +2 = header row + 1-indexed sheet row
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/edit#gid=${CONFIG.GID}&range=A${rowIndex + 2}`;
+}
+
+async function loadSheet() {
+  const res = await fetch(gvizUrl());
+  if (!res.ok) throw new Error(`HTTP ${res.status} — is the sheet shared as "Anyone with link"?`);
+  const text = await res.text();
+  // gviz wraps in /*O_o*/google.visualization.Query.setResponse({...});
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('Unexpected response format');
+  return JSON.parse(text.substring(start, end + 1)).table;
+}
+
+function buildMarkers(table) {
+  const headers = table.cols.map(c => c.label || c.id);
+  const idx = (name) => headers.indexOf(name);
+
+  const nameIdx = idx(CONFIG.NAME_COLUMN);
+  const latIdx  = idx(CONFIG.LAT_COLUMN);
+  const lngIdx  = idx(CONFIG.LNG_COLUMN);
+
+  if (nameIdx === -1 || latIdx === -1 || lngIdx === -1) {
+    throw new Error(`Missing column. Sheet has: ${headers.join(', ')}`);
+  }
+
+  const snippetCols = CONFIG.SNIPPET_COLUMNS
+    .map(entry => typeof entry === 'string'
+      ? { column: entry, label: entry }
+      : entry)
+    .map(e => ({ ...e, i: idx(e.column) }))
+    .filter(x => x.i !== -1);
+
+  // If SHOW_ALL_COLUMNS, append every remaining column with its raw header as label
+  const explicit = new Set(snippetCols.map(s => s.column));
+  const reserved = new Set([CONFIG.NAME_COLUMN, CONFIG.LAT_COLUMN, CONFIG.LNG_COLUMN]);
+  const extraCols = CONFIG.SHOW_ALL_COLUMNS
+    ? headers
+        .filter(h => h && !reserved.has(h) && !explicit.has(h))
+        .map(h => ({ column: h, label: h, i: idx(h) }))
+    : [];
+  const popupCols = [...snippetCols, ...extraCols];
+
+  let valid = 0, skipped = 0;
+
+  table.rows.forEach((row, rowIndex) => {
+    const cellVal = (i) => row.c[i] ? row.c[i].v : null;
+    const lat = cellVal(latIdx);
+    const lng = cellVal(lngIdx);
+    const name = cellVal(nameIdx);
+
+    if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
+      skipped++;
+      return;
+    }
+
+    const snippetHtml = popupCols.map(({ label, i }) => {
+      const v = cellVal(i);
+      return v ? `<div class="field" dir="auto"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(v)}</div>` : '';
+    }).join('');
+
+    const popupHtml = `
+      <div class="popup-card" dir="auto">
+        <h3 dir="auto">${escapeHtml(name || 'Unnamed')}</h3>
+        ${snippetHtml}
+        <a class="row-link" href="${sheetRowUrl(rowIndex)}" target="_blank" rel="noopener">
+          View full row →
+        </a>
+      </div>
+    `;
+
+    const marker = L.marker([lat, lng]);
+    marker.bindPopup(popupHtml);
+    marker._searchName = String(name || '').toLowerCase();
+    allMarkers.push(marker);
+    valid++;
+  });
+
+  cluster.addLayers(allMarkers);
+
+  if (valid > 0) {
+    map.fitBounds(L.featureGroup(allMarkers).getBounds(), { padding: [40, 40] });
+  }
+
+  countEl.textContent = `${valid} location${valid === 1 ? '' : 's'}` +
+    (skipped ? ` · ${skipped} skipped (missing coords)` : '');
+  statusEl.style.display = 'none';
+}
+
+filterEl.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  cluster.clearLayers();
+  const filtered = q ? allMarkers.filter(m => m._searchName.includes(q)) : allMarkers;
+  cluster.addLayers(filtered);
+});
+
+(async () => {
+  try {
+    const table = await loadSheet();
+    buildMarkers(table);
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = `Failed to load: ${err.message}`;
+  }
+})();
+</script>
+
+</body>
+</html>
