@@ -160,6 +160,7 @@ const CONFIG = {
   NAME_COLUMN: 'שם החוף',
   LAT_COLUMN:  'Lat',
   LNG_COLUMN:  'Lng',
+  PAGE_LINK_COLUMN: 'page_link',
 
   // Columns shown in the popup. Each entry can be:
   //   - a string: column name used as both lookup and label
@@ -206,11 +207,6 @@ function gvizUrl() {
   return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&gid=${CONFIG.GID}`;
 }
 
-function sheetRowUrl(rowIndex) {
-  // rowIndex is 0-based data row; +2 = header row + 1-indexed sheet row
-  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/edit#gid=${CONFIG.GID}&range=A${rowIndex + 2}`;
-}
-
 async function loadSheet() {
   const res = await fetch(gvizUrl());
   if (!res.ok) throw new Error(`HTTP ${res.status} — is the sheet shared as "Anyone with link"?`);
@@ -229,6 +225,7 @@ function buildMarkers(table) {
   const nameIdx = idx(CONFIG.NAME_COLUMN);
   const latIdx  = idx(CONFIG.LAT_COLUMN);
   const lngIdx  = idx(CONFIG.LNG_COLUMN);
+  const pageLinkIdx = idx(CONFIG.PAGE_LINK_COLUMN);
 
   if (nameIdx === -1 || latIdx === -1 || lngIdx === -1) {
     throw new Error(`Missing column. Sheet has: ${headers.join(', ')}`);
@@ -243,7 +240,7 @@ function buildMarkers(table) {
 
   // If SHOW_ALL_COLUMNS, append every remaining column with its raw header as label
   const explicit = new Set(snippetCols.map(s => s.column));
-  const reserved = new Set([CONFIG.NAME_COLUMN, CONFIG.LAT_COLUMN, CONFIG.LNG_COLUMN]);
+  const reserved = new Set([CONFIG.NAME_COLUMN, CONFIG.LAT_COLUMN, CONFIG.LNG_COLUMN, CONFIG.PAGE_LINK_COLUMN]);
   const extraCols = CONFIG.SHOW_ALL_COLUMNS
     ? headers
         .filter(h => h && !reserved.has(h) && !explicit.has(h))
@@ -253,7 +250,7 @@ function buildMarkers(table) {
 
   let valid = 0, skipped = 0;
 
-  table.rows.forEach((row, rowIndex) => {
+  table.rows.forEach((row) => {
     const cellVal = (i) => row.c[i] ? row.c[i].v : null;
     const lat = cellVal(latIdx);
     const lng = cellVal(lngIdx);
@@ -269,13 +266,16 @@ function buildMarkers(table) {
       return v ? `<div class="field" dir="auto"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(v)}</div>` : '';
     }).join('');
 
+    const pageLink = pageLinkIdx !== -1 ? cellVal(pageLinkIdx) : null;
+    const linkHtml = pageLink
+      ? `<a class="row-link" href="${escapeHtml(pageLink)}" target="_blank" rel="noopener">View full info →</a>`
+      : '';
+
     const popupHtml = `
       <div class="popup-card" dir="auto">
         <h3 dir="auto">${escapeHtml(name || 'Unnamed')}</h3>
         ${snippetHtml}
-        <a class="row-link" href="${sheetRowUrl(rowIndex)}" target="_blank" rel="noopener">
-          View full row →
-        </a>
+        ${linkHtml}
       </div>
     `;
 
