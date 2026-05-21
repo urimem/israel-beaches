@@ -153,7 +153,7 @@ h1 {
 // CONFIG — edit these to match your sheet
 // ============================================================
 const CONFIG = {
-  SHEET_ID: '1FLeJmp4zDma-hN3xZtWtowVPQpFNlECUsfvFKcrOn10',  // from the sheet URL between /d/ and /edit
+  SHEET_ID: '1C8evhV4tWKC9SGwsRG5ziXOxBSwyuhtuRruVCC7JAUs',  // from the sheet URL between /d/ and /edit
   GID: '0',                         // tab gid (in URL after #gid=); first tab is usually 0
 
   // Column header names — must match exactly (case-sensitive)
@@ -166,14 +166,13 @@ const CONFIG = {
   //   - { column: '...', label: '...' }: use a short label for long column names
   SNIPPET_COLUMNS: [
     { column: 'איזור בארץ', label: 'אזור' },
-    { column: 'החוף בתשלום / כניסה חופשית?', label: 'כניסה' },
     { column: 'ציין את הדירוג לחוף כיעד לשחייני מים פתוחים (1 - לא מומלץ , 10 - הטוב ביותר)', label: 'דירוג' },
     { column: 'טיפ המאמן (מוזמנים לכתוב חופשי)', label: 'טיפ' },
   ],
 
   // If true, every remaining column (except Name/Lat/Lng and those above)
   // is appended after the curated snippet, using its raw header as the label.
-  SHOW_ALL_COLUMNS: true,
+  SHOW_ALL_COLUMNS: false,
 
   // Initial view (used if no locations load)
   DEFAULT_CENTER: [32.0853, 34.7818],  // Tel Aviv
